@@ -42,23 +42,26 @@ DEFAULT_LAYOUT = {
     },
 }
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
-init_storage()
+
+STORAGE_READY = False
 
 
 def get_db():
+    if not STORAGE_READY:
+        init_storage()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_storage():
+    global STORAGE_READY
     DATA_DIR.mkdir(exist_ok=True)
     ICONS_DIR.mkdir(exist_ok=True)
     PREVIEWS_DIR.mkdir(exist_ok=True)
     RENDERS_DIR.mkdir(exist_ok=True)
 
-    with get_db() as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS icons (
@@ -118,6 +121,10 @@ def init_storage():
                     datetime.utcnow().isoformat(),
                 ),
             )
+    STORAGE_READY = True
+
+
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
 
 def hex_to_rgba(hex_value):
