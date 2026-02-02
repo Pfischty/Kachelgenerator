@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kachelgenerator MVP</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <div>
+      <h1>Kachelgenerator MVP</h1>
+      <p>Lokaler Generator für 450×450 PNG-Kacheln mit transparenten, abgerundeten Ecken.</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <h2>Generator</h2>
+      <label class="field">
+        <span>Text</span>
+        <input id="text-input" type="text" placeholder="Alarm" value="Alarm" />
+      </label>
+
+      <label class="field">
+        <span>Farb-Preset</span>
+        <select id="color-select"></select>
+      </label>
+      <label class="field">
+        <span>Custom Farbe (Hex)</span>
+        <input id="color-custom" type="text" value="#6870ef" />
+      </label>
+
+      <div class="field">
+        <span>Icon Upload (SVG/PNG)</span>
+        <input id="icon-upload" type="file" accept=".svg,.png" />
+      </div>
+      <div class="field">
+        <span>Icon Bibliothek</span>
+        <div id="icon-grid" class="icon-grid"></div>
+      </div>
+
+      <label class="field">
+        <span>Icon Scale</span>
+        <input id="icon-scale" type="range" min="0.2" max="0.8" step="0.01" value="0.45" />
+      </label>
+      <label class="field">
+        <span>Textgröße</span>
+        <input id="text-size" type="range" min="24" max="90" step="1" value="48" />
+      </label>
+
+      <label class="field">
+        <span>Layout-Preset</span>
+        <select id="layout-select"></select>
+      </label>
+      <div class="actions">
+        <button id="save-layout">Layout speichern</button>
+      </div>
+
+      <div class="actions">
+        <button id="render-btn" class="primary">Kachel generieren</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Live Preview</h2>
+      <div class="preview-wrapper">
+        <canvas id="preview" width="450" height="450"></canvas>
+      </div>
+      <p class="hint">Ziehe Icon oder Text direkt im Preview.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Verlauf</h2>
+      <div id="history" class="history-grid"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
