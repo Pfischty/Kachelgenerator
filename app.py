@@ -8,7 +8,8 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from PIL import Image, ImageDraw, ImageFont
-import cairosvg
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
 
 APP_ROOT = Path(__file__).parent
 DATA_DIR = APP_ROOT / "data"
@@ -158,8 +159,11 @@ def truncate_text(text, font, max_width):
 def rasterize_icon(icon_path, size):
     suffix = Path(icon_path).suffix.lower()
     if suffix == ".svg":
-        output = cairosvg.svg2png(url=str(icon_path), output_width=size, output_height=size)
-        return Image.open(io.BytesIO(output)).convert("RGBA")
+        drawing = svg2rlg(str(icon_path))
+        if drawing:
+            renderPM.drawToFile(drawing, icon_path.replace('.svg', '.png'), fmt='PNG', dpi=96)
+            image = Image.open(icon_path.replace('.svg', '.png')).convert("RGBA")
+            return image.resize((size, size), Image.LANCZOS)
     image = Image.open(icon_path).convert("RGBA")
     return image.resize((size, size), Image.LANCZOS)
 

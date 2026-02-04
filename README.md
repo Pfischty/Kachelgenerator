@@ -4,9 +4,28 @@ Lokaler MVP für das Erstellen von 450×450 PNG-Kacheln mit transparenten, abger
 
 ## Quickstart (lokal)
 
+### Linux / macOS
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+### Windows (requires admin)
+
+**Option 1: Docker (recommended, no dependencies)**
+```powershell
+docker build -t kachelgenerator .
+docker run -p 5000:5000 kachelgenerator
+```
+
+**Option 2: Local Python (requires Chocolatey for Cairo)**
+```powershell
+choco install cairo
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python app.py
 ```
