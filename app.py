@@ -156,7 +156,7 @@ def truncate_text(text, font, max_width):
     return trimmed + ellipsis if trimmed else ellipsis
 
 
-def rasterize_icon(icon_path, size, color_hex=None):
+def rasterize_icon(icon_path, size):
     suffix = Path(icon_path).suffix.lower()
     if suffix == ".svg":
         drawing = svg2rlg(str(icon_path))
@@ -183,7 +183,6 @@ def render_tile(payload):
     text = payload.get("text", "")
     layout = payload.get("layout", {})
     icon_info = payload.get("icon")
-    icon_color = payload.get("icon_color")
 
     base = Image.new("RGBA", (TILE_SIZE, TILE_SIZE), hex_to_rgba(color))
     mask = Image.new("L", (TILE_SIZE, TILE_SIZE), 0)
@@ -197,7 +196,7 @@ def render_tile(payload):
     if icon_info:
         icon_scale = float(icon_info.get("scale", 0.45))
         icon_size = max(1, int(TILE_SIZE * icon_scale))
-        icon_image = rasterize_icon(icon_info["path"], icon_size, icon_color)
+        icon_image = rasterize_icon(icon_info["path"], icon_size)
         icon_x = int(icon_info.get("x", TILE_SIZE / 2) - icon_size / 2)
         icon_y = int(icon_info.get("y", TILE_SIZE / 2) - icon_size / 2)
         base.alpha_composite(icon_image, (icon_x, icon_y))
@@ -270,32 +269,15 @@ def icons():
             continue
         if tag and tag not in (row["tags"] or "").lower():
             continue
-        suffix = Path(row["file_path"]).suffix.lower()
         results.append(
             {
                 "id": row["id"],
                 "name": row["name"],
                 "tags": row["tags"],
-                "file_type": suffix,
                 "preview_url": f"/api/icons/{row['id']}/preview",
             }
         )
     return jsonify(results)
-
-
-def build_icon_payload(icon_id, layout_params):
-    if not icon_id:
-        return None
-    with get_db() as conn:
-        row = conn.execute("SELECT file_path FROM icons WHERE id = ?", (icon_id,)).fetchone()
-    if not row:
-        return None
-    return {
-        "path": row["file_path"],
-        "x": layout_params.get("icon", {}).get("x", 300),
-        "y": layout_params.get("icon", {}).get("y", 170),
-        "scale": layout_params.get("icon", {}).get("scale", 0.45),
-    }
 
 
 @app.route("/api/icons/<icon_id>", methods=["DELETE"])
@@ -380,7 +362,6 @@ def render_api():
     icon_id = payload.get("icon_id")
     layout = payload.get("layout_params", {})
     text = payload.get("text", "")
-    icon_color = payload.get("icon_color")
 
     if not color_hex:
         return jsonify({"error": "Missing color"}), 400
@@ -389,8 +370,22 @@ def render_api():
     except ValueError:
         return jsonify({"error": "Invalid color hex"}), 400
 
+    icon_path = None
+    if icon_id:
+        with get_db() as conn:
+            row = conn.execute("SELECT file_path FROM icons WHERE id = ?", (icon_id,)).fetchone()
+        if row:
+            icon_path = row["file_path"]
+
     layout_params = layout or DEFAULT_LAYOUT
-    icon_payload = build_icon_payload(icon_id, layout_params)
+    icon_payload = None
+    if icon_path:
+        icon_payload = {
+            "path": icon_path,
+            "x": layout_params.get("icon", {}).get("x", 300),
+            "y": layout_params.get("icon", {}).get("y", 170),
+            "scale": layout_params.get("icon", {}).get("scale", 0.45),
+        }
 
     tile = render_tile(
         {
@@ -398,7 +393,6 @@ def render_api():
             "text": text,
             "layout": layout_params,
             "icon": icon_payload,
-            "icon_color": icon_color,
         }
     )
 
@@ -414,7 +408,7 @@ def render_api():
                 name,
                 icon_id,
                 color_hex,
-                json.dumps({"layout": layout_params, "text": text, "icon_color": icon_color}),
+                json.dumps({"layout": layout_params, "text": text}),
                 str(output_path),
                 datetime.utcnow().isoformat(),
             ),
@@ -427,41 +421,6 @@ def render_api():
             "thumbnail_url": f"/api/renders/{render_id}/download",
         }
     )
-
-
-@app.route("/api/preview", methods=["POST"])
-def preview_api():
-    payload = request.get_json(force=True)
-    color_hex = payload.get("color_hex")
-    icon_id = payload.get("icon_id")
-    layout = payload.get("layout_params", {})
-    text = payload.get("text", "")
-    icon_color = payload.get("icon_color")
-
-    if not color_hex:
-        return jsonify({"error": "Missing color"}), 400
-    try:
-        hex_to_rgba(color_hex)
-    except ValueError:
-        return jsonify({"error": "Invalid color hex"}), 400
-
-    layout_params = layout or DEFAULT_LAYOUT
-    icon_payload = build_icon_payload(icon_id, layout_params)
-
-    tile = render_tile(
-        {
-            "color_hex": color_hex,
-            "text": text,
-            "layout": layout_params,
-            "icon": icon_payload,
-            "icon_color": icon_color,
-        }
-    )
-
-    output = io.BytesIO()
-    tile.save(output, "PNG")
-    output.seek(0)
-    return send_file(output, mimetype="image/png")
 
 
 @app.route("/api/renders")

@@ -4,7 +4,6 @@ const state = {
   icons: [],
   selectedIcon: null,
   selectedColor: "#6870ef",
-  iconColor: "#ffffff",
   text: "Alarm",
   iconPosition: { x: 300, y: 170 },
   iconScale: 0.45,
@@ -15,7 +14,6 @@ const state = {
 
 const canvas = document.getElementById("preview");
 const ctx = canvas.getContext("2d");
-let previewToken = 0;
 
 async function fetchJSON(url, options) {
   const response = await fetch(url, options);
@@ -24,6 +22,20 @@ async function fetchJSON(url, options) {
     throw new Error(message.error || "Request failed");
   }
   return response.json();
+}
+
+function drawRoundedRect(x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
 }
 
 async function loadColors() {
@@ -92,7 +104,6 @@ async function loadIcons() {
     });
     grid.appendChild(item);
   });
-  refreshIcons();
 }
 
 function refreshIcons() {
@@ -104,36 +115,36 @@ function refreshIcons() {
       item.classList.remove("selected");
     }
   });
-  const iconColorInput = document.getElementById("icon-color");
-  if (!state.selectedIcon || state.selectedIcon.file_type !== ".svg") {
-    iconColorInput.disabled = true;
-  } else {
-    iconColorInput.disabled = false;
-  }
 }
 
 async function renderPreview() {
-  const currentToken = ++previewToken;
-  const payload = {
-    icon_id: state.selectedIcon ? state.selectedIcon.id : null,
-    color_hex: state.selectedColor,
-    text: state.text,
-    icon_color: state.selectedIcon && state.selectedIcon.file_type === ".svg" ? state.iconColor : null,
-    layout_params: currentLayoutParams(),
-  };
-  const response = await fetch("/api/preview", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    return;
-  }
-  const blob = await response.blob();
-  if (currentToken !== previewToken) return;
-  const bitmap = await createImageBitmap(blob);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0);
+  ctx.save();
+  drawRoundedRect(0, 0, 450, 450, 30);
+  ctx.clip();
+  ctx.fillStyle = state.selectedColor;
+  ctx.fillRect(0, 0, 450, 450);
+  ctx.restore();
+
+  if (state.selectedIcon) {
+    const img = new Image();
+    img.src = state.selectedIcon.preview_url;
+    await img.decode();
+    const size = 450 * state.iconScale;
+    ctx.drawImage(
+      img,
+      state.iconPosition.x - size / 2,
+      state.iconPosition.y - size / 2,
+      size,
+      size
+    );
+  }
+
+  ctx.fillStyle = "white";
+  ctx.font = `600 ${state.textSize}px Inter, Arial, sans-serif`;
+  ctx.textBaseline = "top";
+  const text = state.text;
+  ctx.fillText(text, state.textPosition.x, state.textPosition.y);
 }
 
 function attachControls() {
@@ -150,11 +161,6 @@ function attachControls() {
 
   document.getElementById("color-custom").addEventListener("input", (event) => {
     state.selectedColor = event.target.value;
-    renderPreview();
-  });
-
-  document.getElementById("icon-color").addEventListener("input", (event) => {
-    state.iconColor = event.target.value;
     renderPreview();
   });
 
@@ -208,8 +214,6 @@ function attachControls() {
         icon_id: state.selectedIcon ? state.selectedIcon.id : null,
         color_hex: state.selectedColor,
         text: state.text,
-        icon_color:
-          state.selectedIcon && state.selectedIcon.file_type === ".svg" ? state.iconColor : null,
         layout_params: currentLayoutParams(),
       };
       const response = await fetchJSON("/api/render", {
